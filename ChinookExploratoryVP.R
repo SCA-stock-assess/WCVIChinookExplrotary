@@ -1,0 +1,21 @@
+library(dplyr)
+library(ggplot2)
+#Length data
+lenDataRC<- read.csv("AgeLengthBioSamplingChinookRC.csv")
+filtereddata<- lenDataRC |> 
+  filter(Poh.Length.Mm <1200 & Scale.Total.Age.Yrs<7)
+
+
+avgPohDF<- filtereddata |> 
+  group_by( Spawning.Year, Scale.Total.Age.Yrs  ) |> 
+  summarise(avgPOH= mean(Poh.Length.Mm, na.rm = TRUE), n=n()) 
+
+avgPohDF$Scale.Total.Age.Yrs <- factor(avgPohDF$Scale.Total.Age.Yrs)
+
+POHFig<- ggplot(avgPohDF, aes(Spawning.Year, avgPOH, color=Scale.Total.Age.Yrs )) +geom_point(size=3) + geom_line() +
+  xlab("") + ylab("POH in mm") + scale_color_brewer(palette="Set1") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"),
+        text = element_text(size=15))
+
+
