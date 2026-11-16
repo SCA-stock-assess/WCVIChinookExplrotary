@@ -15,23 +15,112 @@ library(stringr)
 
 setwd("C:/Users/POURFARAJV/Documents/GitHub/WCVIChinookExplrotaryVahab")
 #Length data
-lenDataRC<- read.csv("AgeLengthBioSamplingChinookRC.csv")
-filtereddata<- lenDataRC |> 
-  filter(Poh.Length.Mm <1200 & Scale.Total.Age.Yrs<6)
+#Data Provided by SEP (Olivia)
+PoHMaster<- read_xlsx("Robertson Cr CN All Adult Biosampling 2000_2026.xlsx")
+#--------------------------------------------------
+# Data preparation
+#--------------------------------------------------
 
+DeadPitchData <- PoHMaster %>%
+  filter(
+    `Parent Activity Type` == "Waterbody Enumeration",
+    !is.na(`Poh Length MM`),
+    !is.na(Sex),
+    between(`Poh Length MM`, 200, 2000)
+  ) %>%
+  mutate(
+    Sex = factor(Sex)
+  )
 
-avgPohDF<- filtereddata |> 
-  group_by( Spawning.Year, Scale.Total.Age.Yrs  ) |> 
-  summarise(avgPOH= mean(Poh.Length.Mm, na.rm = TRUE), n=n()) 
+#--------------------------------------------------
+# Annual summary statistics
+# Used for plotting observed yearly mean lengths
+#--------------------------------------------------
 
-avgPohDF$Scale.Total.Age.Yrs <- factor(avgPohDF$Scale.Total.Age.Yrs)
+AnnualSummary <- DeadPitchData %>%
+  group_by(`Spawning Year`, Sex) %>%
+  summarize(
+    n = n(),
+    MeanLength = mean(`Poh Length MM`, na.rm = TRUE),
+    SD = sd(`Poh Length MM`, na.rm = TRUE),
+    .groups = "drop"
+  )
 
-POHFig<- ggplot(avgPohDF, aes(Spawning.Year, avgPOH, color=Scale.Total.Age.Yrs )) +geom_point(size=3) + geom_line() +
-  xlab("") + ylab("POH in mm") + scale_color_brewer(palette="Set1") +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.background = element_blank(), axis.line = element_line(colour = "black"),
-        text = element_text(size=15))
+print(AnnualSummary)
 
+#--------------------------------------------------
+# Figure 1
+# Observed annual mean length by sex
+#--------------------------------------------------
+
+ggplot(
+  AnnualSummary,
+  aes(
+    x = `Spawning Year`,
+    y = MeanLength,
+    colour = Sex
+  )
+) +
+  geom_line(linewidth = 1.1) +
+  geom_point(size = 2) +
+  theme_bw() +
+  labs(
+    title = "Robertson Creek Chinook Length Through Time",
+    subtitle = "Deadpitch Samples Only",
+    x = "Spawning Year",
+    y = "Mean POH Length (mm)"
+  )
+
+#--------------------------------------------------
+# Linear model
+#
+# Tests:
+# 1. Is length changing through time?
+# 2. Do males and females differ in length?
+# 3. Does the temporal trend differ by sex?
+#--------------------------------------------------
+
+LengthModel <- lm(
+  `Poh Length MM` ~ `Spawning Year` * Sex,
+  data = DeadPitchData
+)
+
+summary(LengthModel)
+
+#--------------------------------------------------
+# Figure 2
+# Fitted model trends by sex
+# Confidence bands represent 95% CI
+#--------------------------------------------------
+
+ggplot(
+  AnnualSummary,
+  aes(
+    x = `Spawning Year`,
+    y = MeanLength,
+    colour = Sex
+  )
+) +
+  geom_point(size = 2) +
+  geom_smooth(
+    method = "lm",
+    se = TRUE,
+    linewidth = 1.2
+  ) +
+  theme_bw() +
+  labs(
+    title = "Robertson Creek Chinook length by year",
+    subtitle = "Deadpitch Samples Only",
+    x = "Spawning Year",
+    y = "Mean POH Length (mm)"
+  )
+ggsave(
+  filename = "Robertson_Creek_Chinook_Length_TemporalVariation.png",
+  width = 10,
+  height = 7,
+  units = "in",
+  dpi = 300
+)
 #################### 2025 Run reconstruction results 
 df <- tribble(
   ~fishery, ~age2, ~age3, ~age4, ~age5, ~age6,
